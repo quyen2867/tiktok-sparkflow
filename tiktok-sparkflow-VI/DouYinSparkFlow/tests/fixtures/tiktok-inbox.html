@@ -1,0 +1,28 @@
+<!doctype html><meta charset="utf-8"><title>Offline inbox fixture</title>
+<a data-e2e="profile-icon" href="/@owner123">Owner</a>
+<div data-e2e="chat-list" style="height:180px;overflow:auto">
+  <div data-e2e="chat-list-item"><a href="/@friend123">Same display name</a></div>
+  <div data-e2e="chat-list-item"><a href="/@other123">Same display name</a></div>
+</div>
+<div data-e2e="chat-header"><a href="/@friend123">Friend</a></div>
+<div id="messages"></div>
+<div data-e2e="message-input" contenteditable="true" style="border:1px solid;width:200px;height:40px"></div>
+<button data-e2e="message-send">Send</button>
+<script>
+window.sent = 0;
+document.querySelectorAll('[data-e2e="chat-list-item"]').forEach(row => row.onclick = event => {
+  event.preventDefault();
+  if (!window.wrongRecipient) document.querySelector('[data-e2e="chat-header"] a').href = row.querySelector('a').href;
+});
+document.querySelector('button').onclick = () => {
+  window.sent++;
+  const input = document.querySelector('[contenteditable]');
+  if (!window.suppressEcho) {
+    const bubble = document.createElement('p');
+    bubble.dataset.e2e = 'chat-message'; bubble.dataset.self = 'true';
+    bubble.textContent = input.textContent;
+    document.querySelector('#messages').appendChild(bubble);
+  }
+  input.textContent = '';
+};
+</script>

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="vi" data-theme="dark">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark light">
+    <title>Đăng nhập | TikTok SparkFlow</title>
+    <link rel="stylesheet" href="/static/app.css?v=20260918-vi2">
+  </head>
+  <body class="login-page">
+    <aside class="login-brand-panel">
+      <a class="brand" href="/login">
+        <span class="brand-mark"><i data-lucide="flame"></i></span>
+        <span>
+          <strong class="brand-title">gửi giữ chuỗi</strong>
+          <small class="brand-subtitle">Quản lý tài khoản TikTok</small>
+        </span>
+      </a>
+
+      <div class="login-brand-copy">
+        <h1>Nhắn tin theo lịch<br><span>cho những chat bạn chọn</span></h1>
+        <p>Chọn cuộc trò chuyện, đặt giờ gửi và theo dõi kết quả tại một nơi. Không xác nhận hoặc bảo đảm streak.</p>
+        <ul class="login-features">
+          <li><i data-lucide="calendar-clock"></i><span>Lịch gửi theo múi giờ, tránh gửi trùng trong ngày</span></li>
+          <li><i data-lucide="badge-check"></i><span>Theo dõi phản hồi giao diện và lần gửi cần kiểm tra</span></li>
+          <li><i data-lucide="scan-line"></i><span>Đăng nhập thủ công trong Chromium</span></li>
+        </ul>
+      </div>
+
+      <small class="muted">TikTok SparkFlow · Bảng điều khiển</small>
+    </aside>
+
+    <main class="login-form-panel">
+      <section class="login-card">
+        <h2>{% if bootstrapped %}Đăng nhập dashboard{% else %}Tạo tài khoản quản trị{% endif %}</h2>
+        <p>Quản lý tài khoản, các chat đã chọn và lịch gửi.</p>
+
+        {% if flash %}
+        <div class="flash flash-{{ flash.level }}" role="status">{{ flash.message }}</div>
+        {% endif %}
+
+        {% if not bootstrapped %}
+        <form method="post" action="/bootstrap" class="stack-form">
+          <label>
+            <span>Tên quản trị</span>
+            <input type="text" name="username" value="admin" autocomplete="username">
+          </label>
+          <label>
+            <span>Mật khẩu quản trị</span>
+            <input type="password" name="password" autocomplete="new-password">
+          </label>
+          <label>
+            <span>Nhập lại mật khẩu</span>
+            <input type="password" name="confirm_password" autocomplete="new-password">
+          </label>
+          <button class="button button-primary button-block" type="submit">
+            <i data-lucide="shield-check"></i><span>Tạo tài khoản quản trị</span>
+          </button>
+        </form>
+        {% else %}
+        <form method="post" action="/login" class="stack-form">
+          <label>
+            <span>Tên quản trị</span>
+            <input type="text" name="username" value="admin" autocomplete="username">
+          </label>
+          <label>
+            <span>Mật khẩu quản trị</span>
+            <input type="password" name="password" autocomplete="current-password">
+          </label>
+          <button class="button button-primary button-block" type="submit">
+            <i data-lucide="log-in"></i><span>Đăng nhập bảng điều khiển</span>
+          </button>
+        </form>
+        {% endif %}
+
+        <div class="login-foot">Phiên đăng nhập TikTok chỉ được lưu trên máy của bạn.</div>
+      </section>
+    </main>
+
+    <script defer src="/static/lucide.min.js?v=20260918-vi2"></script>
+    <script defer src="/static/app.js?v=20260918-vi2"></script>
+  </body>
+</html>

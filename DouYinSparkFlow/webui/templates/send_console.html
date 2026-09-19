@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block nav_key %}send_console{% endblock %}
+{% block page_key %}send-console{% endblock %}
+{% block title %}Theo dõi gửi tin{% endblock %}
+{% block page_title %}Theo dõi gửi tin{% endblock %}
+{% block page_subtitle %}Ưu tiên hiển thị tài khoản cần xử lý{% endblock %}
+
+{% block topbar_actions %}
+{% set top_summary = ops.send_console.summary %}
+<a class="button button-quiet" href="/">
+  <i data-lucide="arrow-left"></i><span>Về tổng quan</span>
+</a>
+
+<form
+  method="post"
+  action="/ops/run-unsent"
+  data-confirm-title="Gửi các chat đang chờ hôm nay"
+  data-confirm="Gửi ngay cho {{ top_summary.today_pending_targets + top_summary.today_unprocessed_targets }} người nhận chưa được xử lý, nếu đủ điều kiện. Tiếp tục?"
+  data-confirm-accept="Gửi ngay"
+  data-confirm-tone="primary"
+>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <button
+    class="button button-primary"
+    type="submit"
+    data-action-count-source="pending"
+    {% if ops.task_lock.running or (top_summary.today_pending_targets + top_summary.today_unprocessed_targets) == 0 %}disabled{% endif %}
+  >
+    <i data-lucide="send"></i>
+    <span>Gửi các chat đang chờ <b data-action-count>{{ top_summary.today_pending_targets + top_summary.today_unprocessed_targets }}</b></span>
+  </button>
+</form>
+{% endblock %}
+
+{% block content %}
+<p class="panel">“Đã hiện trên Web” chỉ là phản hồi giao diện, không xác nhận giao tin hoặc streak. Tin chưa rõ kết quả: kiểm tra trên TikTok rồi xử lý ở mục Kiểm tra thủ công tại Tổng quan.</p>
+{% set send_console = ops.send_console %}
+{% set summary = send_console.summary %}
+
+<div class="console-shell" data-overview-root>
+  <div
+    class="status-banner {% if ops.task_lock.running %}warning{% elif ops.task_lock.stale %}info{% else %}success{% endif %}"
+    data-task-banner
+  >
+    <strong>
+      <i data-lucide="{% if ops.task_lock.running %}loader-circle{% elif ops.task_lock.stale %}info{% else %}circle-check{% endif %}"></i>
+      <span data-task-text>
+        {% if ops.task_lock.running %}
+        Đang gửi tin, đã chạy khoảng {{ ops.task_lock.ageSeconds }} giây
+        {% elif ops.task_lock.stale %}
+        Phát hiện khóa tác vụ cũ; hệ thống sẽ kiểm tra lại ở lần chạy tiếp theo
+        {% else %}
+        Hiện không có lượt gửi đang chạy
+        {% endif %}
+      </span>
+    </strong>
+    <span class="pill info" data-overview-live-state>Trực tiếp</span>
+  </div>
+
+  <div class="status-banner info refresh-notice" data-refresh-notice>
+    <strong><i data-lucide="circle-check"></i><span>Tác vụ đã kết thúc. Cập nhật để xem kết quả từng người nhận.</span></strong>
+    <button class="button button-quiet" type="button" data-refresh-page>
+      <i data-lucide="refresh-cw"></i><span>Cập nhật chi tiết</span>
+    </button>
+  </div>
+
+  <section class="metric-grid" aria-label="Tổng hợp trạng thái gửi tin">
+    <article class="metric-card info">
+      <div class="metric-label">Tổng số người nhận</div>
+      <div class="metric-value" data-overview-value="total">{{ summary.total_targets }}</div>
+      <div class="metric-help">{{ summary.enabled_accounts }} tài khoản đang bật</div>
+    </article>
+    <article class="metric-card success">
+      <div class="metric-label">Đã hiện trên Web / đã kiểm tra</div>
+      <div class="metric-value" data-overview-value="confirmed">{{ summary.today_confirmed_targets }}</div>
+      <div class="metric-help">Phản hồi Web hoặc bạn đã kiểm tra</div>
+    </article>
+    <article class="metric-card danger">
+      <div class="metric-label">Cần xử lý</div>
+      <div class="metric-value" data-overview-value="attention">{{ summary.today_attention_targets }}</div>
+      <div class="metric-help">Kết quả chưa rõ hoặc tài khoản đã dừng</div>
+    </article>
+    <article class="metric-card warning">
+      <div class="metric-label">Chờ gửi</div>
+      <div class="metric-value" data-overview-value="pending">
+        {{ summary.today_pending_targets + summary.today_unprocessed_targets }}
+      </div>
+      <div class="metric-help">Chờ mốc giờ hoặc chưa xử lý</div>
+    </article>
+  </section>
+
+  <section class="dashboard-section">
+    <div class="section-header">
+      <div>
+        <h2 class="section-title">Chi tiết tài khoản</h2>
+        <p class="muted compact">Tài khoản cần xử lý được mở sẵn. Xem riêng tin đã xử lý, lỗi và tin chờ gửi.</p>
+      </div>
+      <span class="pill">{{ send_console.nowDisplay }}</span>
+    </div>
+
+    <div class="account-console-list">
+      {% for account in send_console.accounts %}
+      {% set exception_count = account.unconfirmed_targets|length + account.failed_targets|length + account.account_blocked_targets|length %}
+      {% set success_count = account.confirmed_targets|length %}
+      {% set waiting_targets = account.pending_targets + account.unprocessed_targets %}
+      {% set default_segment = "exceptions" if exception_count else ("success" if success_count else "pending") %}
+      <details
+        class="account-console state-{{ account.state }}"
+        id="account-{{ account.unique_id }}"
+        data-segment-owner
+        data-account-overview="{{ account.unique_id }}"
+        {% if account.state in ["attention", "paused", "warning"] %}open{% endif %}
+      >
+        <summary>
+          <span class="account-ident">
+            <span class="account-avatar">{{ (account.username or "A")[:1] }}</span>
+            <span class="account-name">
+              <strong>{{ account.username }}</strong>
+              <small>{{ account.confirmed_targets|length }}/{{ account.total_targets }} Đã xử lý</small>
+            </span>
+          </span>
+          <span class="account-console-metrics">
+            <span class="status-chip success">Đã xử lý <b data-account-confirmed>{{ success_count }}</b></span>
+            {% if exception_count %}<span class="status-chip danger">Cần xử lý <b data-account-attention>{{ exception_count }}</b></span>{% endif %}
+            {% if waiting_targets|length %}<span class="status-chip warning">Chờ gửi <b data-account-pending>{{ waiting_targets|length }}</b></span>{% endif %}
+            {% if account.account_paused %}<span class="status-chip danger">Tài khoản tạm dừng</span>{% endif %}
+          </span>
+          <i class="summary-chevron" data-lucide="chevron-down"></i>
+        </summary>
+
+        <div class="account-console-body">
+          {% if account.warnings %}
+          <div class="warning-box">
+            {% for warning in account.warnings %}<div>{{ warning.message }}</div>{% endfor %}
+          </div>
+          {% endif %}
+
+          {% if account.account_failure %}
+          <div class="danger-box">
+            <strong>Tài khoản cần xử lý: {{ account.account_failure.categoryLabel or "Cần kiểm tra" }}</strong>
+            <div>Số lần thử hôm nay: {{ account.account_failure.attemptCount or 0 }}/{{ account.account_failure_pause_after }} · {{ account.account_failure.reason or "-" }}</div>
+          </div>
+          {% endif %}
+
+          <div class="account-meta-strip">
+            <span>
+              Danh sách chat:
+              {% if account.friend_index_meta.lastScanAt %}
+              {{ "Đầy đủ" if account.friend_index_meta.lastScanComplete else "Chưa đầy đủ" }} · đã ghi nhận {{ account.friend_index_count }} chat
+              {% else %}
+              Chưa đọc danh sách
+              {% endif %}
+            </span>
+            <span>Lần xử lý gần nhất: {{ account.last_confirmed_display or "-" }}</span>
+          </div>
+
+          <div class="segmented-control" data-segment-group role="tablist" aria-label="{{ account.username }} — trạng thái gửi tin">
+            <button class="segment-button {% if default_segment == 'exceptions' %}active{% endif %}" type="button" data-segment-target="exceptions">
+              <i data-lucide="triangle-alert"></i><span>Cần xử lý {{ exception_count }}</span>
+            </button>
+            <button class="segment-button {% if default_segment == 'success' %}active{% endif %}" type="button" data-segment-target="success">
+              <i data-lucide="circle-check"></i><span>Đã xử lý {{ success_count }}</span>
+            </button>
+            <button class="segment-button {% if default_segment == 'pending' %}active{% endif %}" type="button" data-segment-target="pending">
+              <i data-lucide="clock-3"></i><span>Chờ gửi {{ waiting_targets|length }}</span>
+            </button>
+          </div>
+
+          <div data-segment-panel="exceptions" {% if default_segment != "exceptions" %}hidden{% endif %}>
+            <div class="target-list">
+              {% for item in account.unconfirmed_targets %}
+              <article class="target-record">
+                <div class="target-record-main">
+                  <strong>{{ item.target }}</strong>
+                  <small>{{ item.categoryLabel }} · Đã thử {{ item.attemptCount or 0 }} lần</small>
+                </div>
+                <div class="target-reason" title="{{ item.reason or item.confirmationDetail or '' }}">
+                  {{ item.reason or item.confirmationDetail or "Kết quả gửi chưa được xác nhận" }}
+                </div>
+                <span class="target-meta">{{ item.displayLastAttemptAt or item.displaySentAt or "-" }}</span>
+                <form method="post" action="/accounts/{{ account.unique_id }}/retry-target">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <input type="hidden" name="target" value="{{ item.target }}">
+                  <button class="button button-soft" type="submit"><i data-lucide="refresh-cw"></i><span>Thử lại</span></button>
+                </form>
+              </article>
+              {% endfor %}
+
+              {% for item in account.failed_targets %}
+              <article class="target-record">
+                <div class="target-record-main">
+                  <strong>{{ item.target }}</strong>
+                  <small>{{ item.categoryLabel }} · Đã thử {{ item.attemptCount or 0 }} lần</small>
+                </div>
+                <div class="target-reason" title="{{ item.reason or '' }}">{{ item.reason or "Chưa ghi nhận nguyên nhân lỗi" }}</div>
+                <span class="target-meta">{{ item.displayLastAttemptAt or "-" }}</span>
+                <form method="post" action="/accounts/{{ account.unique_id }}/retry-target">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <input type="hidden" name="target" value="{{ item.target }}">
+                  <button class="button button-soft" type="submit"><i data-lucide="refresh-cw"></i><span>Thử lại</span></button>
+                </form>
+              </article>
+              {% endfor %}
+
+              {% for item in account.account_blocked_targets %}
+              <article class="target-record">
+                <div class="target-record-main">
+                  <strong>{{ item.target }}</strong>
+                  <small>Bị dừng do tài khoản cần xử lý</small>
+                </div>
+                <div class="target-reason" title="{{ item.reason or '' }}">{{ item.reason or item.categoryLabel }}</div>
+                <span class="target-meta">{{ item.displayLastAttemptAt or "-" }}</span>
+                <form method="post" action="/accounts/{{ account.unique_id }}/retry-target">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <input type="hidden" name="target" value="{{ item.target }}">
+                  <button class="button button-soft" type="submit"><i data-lucide="refresh-cw"></i><span>Thử lại</span></button>
+                </form>
+              </article>
+              {% endfor %}
+
+              {% if exception_count == 0 %}
+              <div class="empty-state">Hôm nay tài khoản này không có chat bị lỗi, bị dừng hoặc cần kiểm tra.</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div data-segment-panel="success" {% if default_segment != "success" %}hidden{% endif %}>
+            <div class="target-list">
+              {% for item in account.confirmed_targets %}
+              <article class="target-record">
+                <div class="target-record-main">
+                  <strong>{{ item.target }}</strong>
+                  <small>{{ item.confirmationLabel }}</small>
+                </div>
+                <div class="target-message" title="{{ item.message or '' }}">{{ item.message or "Chưa lưu nội dung tin nhắn" }}</div>
+                <span class="target-meta" title="{{ item.sentAt or '' }}">{{ item.displaySentAt or "-" }}</span>
+                <form
+                  method="post"
+                  action="/accounts/{{ account.unique_id }}/mark-target-unconfirmed"
+                  data-confirm-title="Đánh dấu cần kiểm tra"
+                  data-confirm="Đánh dấu tin gửi hôm nay cho “{{ item.target }}” là cần kiểm tra. Tin sẽ không tự gửi lại cho đến khi bạn xác minh. Tiếp tục?"
+                  data-confirm-accept="Đánh dấu cần kiểm tra"
+                >
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <input type="hidden" name="target" value="{{ item.target }}">
+                  <button class="button button-quiet" type="submit"><i data-lucide="flag"></i><span>Chờ kiểm tra</span></button>
+                </form>
+              </article>
+              {% else %}
+              <div class="empty-state">Hôm nay tài khoản này chưa có tin đã hiện trên Web hoặc được bạn xác nhận.</div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div data-segment-panel="pending" {% if default_segment != "pending" %}hidden{% endif %}>
+            <div class="target-list">
+              {% for item in waiting_targets %}
+              <article class="target-record">
+                <div class="target-record-main">
+                  <strong>{{ item.target }}</strong>
+                  <small>{% if item.status == "pending" %}Chờ giờ đã đặt{% else %}Chưa xử lý{% endif %}</small>
+                </div>
+                <div class="target-message">Danh sách chat: {% if item.friendIndex.seen %}Đã ghi nhận{% else %}Chưa ghi nhận{% endif %}</div>
+                <span class="target-meta">{{ item.displayScheduledAt or "-" }}</span>
+                <span class="status-chip warning">Chờ gửi</span>
+              </article>
+              {% else %}
+              <div class="empty-state">Hôm nay tài khoản này không có chat chờ gửi.</div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </details>
+      {% else %}
+      <div class="empty-state">Chưa có tài khoản nào được bật.</div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}
