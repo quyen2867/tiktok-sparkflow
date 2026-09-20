@@ -21,6 +21,7 @@ DouYinSparkFlow/config.json
 DouYinSparkFlow/webui_users.json
 
 .venv/
+.venv-old/
 **/state/
 __pycache__/
 *.pyc

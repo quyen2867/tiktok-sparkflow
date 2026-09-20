@@ -14,6 +14,7 @@ from utils.config import DEBUG, Environment, get_app_settings, get_environment
 console = Console()
 PLAYWRIGHT_BROWSERS_PATH = "../chrome"
 DEFAULT_PROFILE_ROOT = str(Path(__file__).resolve().parents[1] / "state" / "browser-profiles")
+BRAVE_EXECUTABLE = Path("/Applications/Brave Browser.app/Contents/MacOS/Brave Browser")
 
 
 def _local_browser_bundle_path():
@@ -47,14 +48,15 @@ def _headless_for(GUI=False):
 
 def _browser_launch_options(GUI=False, network_mode=None):
     opts = {"headless": _headless_for(GUI)}
-    # Cho phép dùng Chrome/Brave thật (đỡ bị TikTok chặn automation hơn Chromium bundle).
-    # Ví dụ: SPARKFLOW_BROWSER_CHANNEL=chrome hoặc SPARKFLOW_BROWSER_EXECUTABLE="/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
+    # Keep explicit overrides; otherwise also prefer installed Brave for CLI entry points.
     channel = str(os.getenv("SPARKFLOW_BROWSER_CHANNEL") or "").strip()
     exe = str(os.getenv("SPARKFLOW_BROWSER_EXECUTABLE") or "").strip()
     if exe:
         opts["executable_path"] = exe
     elif channel:
         opts["channel"] = channel
+    elif sys.platform == "darwin" and BRAVE_EXECUTABLE.is_file() and os.access(BRAVE_EXECUTABLE, os.X_OK):
+        opts["executable_path"] = str(BRAVE_EXECUTABLE)
     return opts
 
 

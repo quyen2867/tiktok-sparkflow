@@ -8,18 +8,107 @@ Không đọc/giả lập điểm streak. Theo [TikTok](https://support.tiktok.c
 
 ## 1. Cài và chạy trên Mac
 
-Cần Python 3.11 trở lên và kết nối truy cập TikTok bình thường. Đã chạy bộ kiểm thử trên macOS ARM64, Python 3.14.7, Playwright 1.56.0. Không cần Docker.
+Cần **Python 3.11 trở lên** và kết nối mạng để cài thư viện/trình duyệt. Hướng dẫn dưới đây dùng Python 3.11 để tránh Python cũ có sẵn trên macOS. Không cần Docker.
 
-Trong Terminal, vào thư mục repo đã giải nén rồi chạy:
+**Copy từng ô lệnh riêng → Enter → chờ chạy xong rồi mới chạy ô tiếp theo. Nếu có lỗi, dừng tại bước đó.** Không ghép lệnh `cd` và `python` trên cùng một dòng.
+
+### Bước 1: Lấy repo và vào đúng thư mục
+
+Nếu tải mới bằng Git, chạy lần lượt (thư mục đích `tiktok-sparkflow` chưa tồn tại):
 
 ```bash
-cd /duong/dan/toi/tiktok-sparkflow
-python3 -m venv .venv
+mkdir -p "$HOME/Documents"
+```
+
+```bash
+cd "$HOME/Documents"
+```
+
+```bash
+git clone https://github.com/quyen2867/tiktok-sparkflow.git
+```
+
+```bash
+cd tiktok-sparkflow
+```
+
+Nếu đã tải ZIP, **bỏ qua phần clone**. Ví dụ giải nén `tiktok-sparkflow-main` trong Documents thì dùng:
+
+```bash
+cd "$HOME/Documents/tiktok-sparkflow-main"
+```
+
+Nếu nằm trong Downloads thì dùng:
+
+```bash
+cd "$HOME/Downloads/tiktok-sparkflow-main"
+```
+
+Chỉ chọn lệnh khớp vị trí thật. Với vị trí/tên khác: gõ `cd ` (có dấu cách), kéo thư mục từ Finder vào Terminal rồi Enter. Cách này xử lý cả tên thư mục có dấu cách. Dùng thư mục ngoài cùng chứa README này và `DouYinSparkFlow`; không cần vào bản sao `tiktok-sparkflow-VI`.
+
+Xác nhận đường dẫn requirements tồn tại trước khi tiếp tục:
+
+```bash
+ls DouYinSparkFlow/requirements.txt
+```
+
+### Bước 2: Python và môi trường riêng
+
+Kiểm tra Python:
+
+```bash
+python3.11 --version
+```
+
+Nếu chưa có Python 3.11 và máy đã có [Homebrew](https://brew.sh/):
+
+```bash
+brew install python@3.11
+```
+
+Nếu chưa dùng Homebrew, có thể cài Python từ [python.org](https://www.python.org/downloads/macos/). Nếu đã có Python mới hơn, thay **riêng `python3.11`** trong lệnh tạo môi trường bằng tên Python đó, ví dụ `python3.13`; phải là phiên bản >=3.11. Script cũng kiểm tra phiên bản thật trong `.venv` trước khi chạy.
+
+Tại thư mục repo, tạo môi trường:
+
+```bash
+python3.11 -m venv .venv
+```
+
+Kích hoạt:
+
+```bash
 source .venv/bin/activate
+```
+
+Kiểm tra phải ra Python 3.11 trở lên:
+
+```bash
+python --version
+```
+
+Nâng cấp pip:
+
+```bash
+python -m pip install --upgrade pip
+```
+
+Cài thư viện (đã bao gồm dashboard; không cần cài riêng `requirements-web.txt`):
+
+```bash
 python -m pip install -r DouYinSparkFlow/requirements.txt
-PLAYWRIGHT_SKIP_BROWSER_GC=1 python -m playwright install chromium
+```
+
+### Bước 3: Chạy
+
+```bash
 bash DouYinSparkFlow/scripts/start_macos.sh
 ```
+
+Script tự dùng **Brave** nếu có tại `/Applications/Brave Browser.app/Contents/MacOS/Brave Browser`. **Không cần export biến môi trường hoặc cài Chromium khi đã có Brave.** Nếu không có Brave, script dùng Chromium của Playwright và tự tải khi thiếu; lần đầu cần mạng và có thể mất vài phút. Terminal sẽ báo trình duyệt được chọn trước khi khởi động dịch vụ.
+
+Nếu đã chủ động đặt `SPARKFLOW_BROWSER_EXECUTABLE` hoặc `SPARKFLOW_BROWSER_CHANNEL`, cấu hình đó được ưu tiên. Cả dashboard và dịch vụ đăng nhập nhận cùng cấu hình trình duyệt.
+
+Lần sau chỉ cần vào lại đúng thư mục repo rồi chạy lệnh ở Bước 3; script tự dùng `.venv` của repo nên không cần activate lại.
 
 Mở [dashboard cục bộ](http://127.0.0.1:8787). Lần đầu tạo tài khoản quản trị của dashboard; đây **không phải mật khẩu TikTok**. Script khởi động cả dashboard và dịch vụ mở cửa sổ đăng nhập tại `127.0.0.1:18090`. Ctrl+C để tắt.
 
@@ -28,15 +117,18 @@ Mặc định `scheduleEnabled=false`; mở dashboard chưa gửi tin. Cả dash
 ## 2. Đăng nhập và chọn chat
 
 1. Mở **Đăng nhập bằng trình duyệt**, bấm **Thêm tài khoản TikTok**.
-2. Trong Chromium trên Mac, tự đăng nhập bằng phương thức TikTok cung cấp. Tự hoàn thành QR, mật khẩu, OTP, CAPTCHA và xác minh thiết bị nếu có. Công cụ không xử lý hộ các bước này.
+2. Trong Brave hoặc Chromium trên Mac, tự đăng nhập bằng phương thức TikTok cung cấp. Tự hoàn thành QR, mật khẩu, OTP, CAPTCHA và xác minh thiết bị nếu có. Công cụ không xử lý hộ các bước này.
 3. Quay lại dashboard và bấm **Lưu đăng nhập**. Công cụ đọc liên kết hồ sơ của chính tài khoản, lưu cookies và local storage cục bộ. Nếu không đọc được hồ sơ thì báo lỗi, không đoán tài khoản.
 4. Trong **Tài khoản và chat**, bấm **Đọc các chat hiện có**, chọn người nhận và lưu. Hoặc nhập **`@username` chính xác, mỗi dòng một người**. Tên hiển thị không được chấp nhận; `alice123` và `bob123` không bị gộp vào ID `123`.
 5. Chỉ hỗ trợ chat một-một đã có trong inbox và có liên kết hồ sơ đủ để xác định người nhận. Không tự tạo chat mới, gửi lời mời, quét follower hoặc hỗ trợ chat nhóm. Danh sách quét có giới hạn; thiếu chat không đồng nghĩa không có chat đó.
 
-Đăng nhập qua Terminal cũng được:
+Đăng nhập qua Terminal cũng được (bắt đầu tại thư mục repo):
 
 ```bash
 cd DouYinSparkFlow
+```
+
+```bash
 ../.venv/bin/python main.py --login
 ```
 
@@ -46,16 +138,19 @@ Phiên đăng nhập lưu trong `DouYinSparkFlow/usersData.json` (quyền file 0
 
 Chưa có session TikTok thật trong quá trình phát triển nên **không thể xác nhận selector mẫu khớp TikTok hiện tại, tài khoản hay khu vực của bạn**. Nếu selector không khớp, chương trình dừng; không tìm cách dùng API ẩn hoặc qua mặt xác minh.
 
-Lệnh này chỉ mở trang, đọc danh sách và chọn chat, **không gõ/gửi tin**:
+Bắt đầu tại thư mục repo. Lệnh này chỉ mở trang, đọc danh sách và chọn chat, **không gõ/gửi tin**:
 
 ```bash
 cd DouYinSparkFlow
+```
+
+```bash
 ../.venv/bin/python scripts/check_tiktok.py --account ten_tai_khoan --target @ten_nguoi_nhan
 ```
 
 Khi báo `Expected one visible ...` hoặc không tìm thấy inbox:
 
-- Dùng DevTools trong Chromium để kiểm tra DOM hiển thị trên tài khoản của bạn.
+- Dùng DevTools trong Brave/Chromium để kiểm tra DOM hiển thị trên tài khoản của bạn.
 - Chỉnh các selector tương ứng trong `config.json` → `tiktok.selectors`; các trường không ghi đè dùng `core/tiktok.py:DEFAULT_SELECTORS`.
 - `selfProfile` phải là đúng liên kết hồ sơ **của bạn**, không phải video/người đang xem.
 - `chatList` phải là vùng cuộn của inbox; `chatRow` là một dòng chat; `rowProfile` là liên kết `/@username` bên trong dòng đó.
@@ -117,19 +212,91 @@ Không có cơ chế tự phục hồi streak, né hạn chế tài khoản hay 
 ## 6. Mã và kiểm thử
 
 - `core/tiktok.py`: hợp đồng selector, guard, xác định tài khoản/người nhận, scan inbox và một lần bấm gửi.
-- `core/login.py`, `login_desktop_server.py`: đăng nhập thủ công trong Chromium.
+- `core/login.py`, `login_desktop_server.py`: đăng nhập thủ công trong Brave/Chromium.
 - `core/browser.py`: Playwright thông thường, không đổi fingerprint/proxy fallback.
 - `core/friends.py`: đọc chat có sẵn và session.
 - `core/tasks.py`: lịch gửi, journal chống gửi trùng, trạng thái dừng và khoá tiến trình.
 - `webui/`: dashboard/phân quyền cũ, thêm bật lịch, múi giờ, xử lý thủ công và login local.
 - `utils/config.py`: giữ cấu trúc JSON, bổ sung `platform`, `scheduleEnabled`, `timezone`, `tiktok`.
 
+Từ thư mục repo, chạy từng lệnh. Bộ kiểm thử offline gọi Chromium trực tiếp, nên riêng khi chạy tests cần cài Chromium kể cả máy đã có Brave:
+
 ```bash
 source .venv/bin/activate
+```
+
+```bash
+python -m playwright install chromium
+```
+
+```bash
 cd DouYinSparkFlow
+```
+
+```bash
 python -m unittest discover -s tests -v
 ```
 
 Tests trình duyệt chặn toàn bộ request và dùng fixture offline, không nhắn tin tới người thật. Chi tiết thay đổi và phạm vi kiểm chứng: [PORTING_NOTES.md](PORTING_NOTES.md).
+
+## 7. Troubleshooting trên macOS
+
+### `cd: too many arguments` hoặc không tìm thấy thư mục
+
+Lỗi này thường do dán `cd` và lệnh tạo `.venv` dính trên một dòng, hoặc đường dẫn có dấu cách chưa được đặt trong dấu nháy. Chạy từng ô lệnh ở Bước 1, không nối thêm `python` sau lệnh `cd`. Với thư mục có tên khác, kéo từ Finder vào Terminal sau `cd `.
+
+Kiểm tra đang ở đâu:
+
+```bash
+pwd
+```
+
+Kiểm tra đúng thư mục repo:
+
+```bash
+ls DouYinSparkFlow/requirements.txt
+```
+
+Nếu không thấy file này thì quay lại Bước 1; chưa cài requirements hay chạy script.
+
+### Python quá cũ / `No matching distribution found` / `Requires-Python`
+
+```bash
+python --version
+```
+
+Nếu thấp hơn 3.11, cài Python 3.11 trở lên như Bước 2. Nâng pip không thể nâng phiên bản Python trong `.venv`. Tại thư mục repo, nếu đang activate môi trường thì thoát trước:
+
+```bash
+deactivate
+```
+
+Giữ lại môi trường cũ bằng cách đổi tên (nếu `.venv-old` đã tồn tại, chọn tên khác):
+
+```bash
+mv .venv .venv-old
+```
+
+Sau đó chạy lại từng lệnh ở Bước 2 từ tạo `.venv`, activate, nâng pip tới cài requirements. Nếu Python đã đủ mới mà pip vẫn lỗi, kiểm tra kết nối mạng và dòng lỗi tên gói cụ thể.
+
+### `Executable doesn't exist` / thiếu browser executable
+
+Chạy lại script ở Bước 3: script tự nhận Brave hoặc tải Chromium vào vị trí Playwright đang sử dụng. Nếu tải thất bại, kiểm tra mạng và dung lượng trống rồi chạy lại.
+
+Nếu từng thử export biến từ hướng dẫn cũ, bỏ cấu hình cũ trong Terminal hiện tại bằng từng lệnh sau rồi chạy lại script:
+
+```bash
+unset SPARKFLOW_BROWSER_EXECUTABLE
+```
+
+```bash
+unset SPARKFLOW_BROWSER_CHANNEL
+```
+
+```bash
+unset PLAYWRIGHT_BROWSERS_PATH
+```
+
+Không cần đặt `PLAYWRIGHT_BROWSERS_PATH=0` hay `BROWSER_EXECUTABLE`. Nếu biến cũ được khai báo trong `~/.zshrc`, bỏ dòng khai báo đó để Terminal mới không dùng lại. Một đường dẫn `SPARKFLOW_BROWSER_EXECUTABLE` được đặt thủ công nhưng không tồn tại sẽ báo lỗi rõ, thay vì âm thầm chọn trình duyệt khác.
 
 Giữ giấy phép [PolyForm Noncommercial 1.0.0](LICENSE) và tác giả repo gốc. Bản port không đổi phạm vi cấp phép. Các tài liệu/deploy Douyin cũ được giữ trong `docs/upstream/` để tham khảo, không phải đường chạy được hỗ trợ của bản TikTok.

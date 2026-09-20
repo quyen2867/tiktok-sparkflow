@@ -1,5 +1,7 @@
 # DouYinSparkFlow - Ứng dụng lõi (bản Douyin cũ, tham khảo)
 
+**Cài TikTok SparkFlow trên macOS:** làm theo [README ở thư mục repo](../README.md#1-cài-và-chạy-trên-mac). Script macOS tự chọn Brave hoặc chuẩn bị Chromium; các lệnh Douyin/Docker bên dưới chỉ là tài liệu cũ.
+
 > Hệ thống giữ lửa Douyin đa tài khoản - module source lõi
 
 Đây là thư mục source lõi của DouYin SparkFlow, gồm toàn bộ logic nghiệp vụ, giao diện Web và task tự động.
