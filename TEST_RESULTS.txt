@@ -1,5 +1,0 @@
-KIỂM TRA BẢN TIẾNG VIỆT
-
-Đã kiểm tra 4 trang bằng Chromium: không còn chữ Trung trong nội dung giao diện do ứng dụng tạo; locale vi-VN; hộp xác nhận mở/hủy được; giao diện di động không tràn ngang; không có lỗi JavaScript.
-
-Kiểm thử Python gần nhất: 45 tests, 5 failures và 2 errors ở browser contract. Selector và cách đọc chat trong core/tiktok.py đã được thay đổi trong khi Việt hóa; các fixture cũ chưa khớp với phiên bản đó. Không tuyên bố bộ kiểm thử gửi tin hiện tại đã qua. Bản cập nhật ngôn ngữ không ghi đè các thay đổi xử lý TikTok đang có, không xóa dữ liệu đăng nhập và không gửi tin thật.
