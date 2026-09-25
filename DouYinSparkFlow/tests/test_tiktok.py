@@ -128,7 +128,7 @@ class BrowserContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(0, await self.page.evaluate('window.sent'))
 
     async def test_wrong_recipient_stops_before_typing(self):
-        await self.page.evaluate("window.wrongRecipient = true; document.querySelector('[data-e2e=chat-header] a').href='/@wrong'")
+        await self.page.evaluate("window.wrongRecipient = true; document.querySelector('[data-e2e=chat-uniqueid]').textContent='@wrong'")
         with self.assertRaises(TikTokError) as caught:
             await self.ui.send('@friend123', 'Hello', lambda: None)
         self.assertEqual('identity_mismatch', caught.exception.category)
@@ -164,11 +164,18 @@ class BrowserContractTests(unittest.IsolatedAsyncioTestCase):
     async def test_missing_or_duplicate_row_is_not_guessed(self):
         with self.assertRaises(TikTokError):
             await self.ui.scan('@missing')
-        await self.page.evaluate("const row=document.querySelector('[data-e2e=chat-list-item]');row.parentNode.appendChild(row.cloneNode(true))")
-        with self.assertRaises(TikTokError) as caught:
-            await self.ui.scan('@friend123')
-        self.assertEqual('identity_mismatch', caught.exception.category)
-        self.assertEqual(0, await self.page.evaluate('window.sent'))
+        await self.page.evaluate("const row=document.querySelector('[data-e2e=dm-new-conversation-item]');row.parentNode.appendChild(row.cloneNode(true))")
+        # Dòng trùng không được làm sai lệch discovery: mỗi handle chỉ liệt kê một lần.
+        self.assertEqual(['@friend123', '@other123'], await self.ui.scan())
+
+    async def test_dropped_message_is_unconfirmed_after_reopen(self):
+        # Server hiện bong bóng lúc gửi nhưng không lưu: mở lại thì mất -> không xác nhận.
+        await self.page.evaluate('window.dropPersisted = true')
+        with patch('core.tiktok.asyncio.sleep', new=AsyncMock()):
+            with self.assertRaises(TikTokError) as caught:
+                await self.ui.send('@friend123', 'Hello', lambda: None)
+        self.assertEqual('send_unconfirmed', caught.exception.category)
+        self.assertEqual(1, await self.page.evaluate('window.sent'))
 
 
 class WebIntegrationTests(unittest.TestCase):

@@ -1,27 +1,44 @@
 <!doctype html><meta charset="utf-8"><title>Offline inbox fixture</title>
 <a data-e2e="profile-icon" href="/@owner123">Owner</a>
-<div data-e2e="chat-list" style="height:180px;overflow:auto">
-  <div data-e2e="chat-list-item"><a href="/@friend123">Same display name</a></div>
-  <div data-e2e="chat-list-item"><a href="/@other123">Same display name</a></div>
+<div data-e2e="dm-new-conversation-list" style="height:180px;overflow:auto">
+  <div data-e2e="dm-new-conversation-item"><a href="/@friend123">Same display name</a></div>
+  <div data-e2e="dm-new-conversation-item"><a href="/@other123">Same display name</a></div>
 </div>
-<div data-e2e="chat-header"><a href="/@friend123">Friend</a></div>
+<div data-e2e="chat-uniqueid">@friend123</div>
 <div id="messages"></div>
-<div data-e2e="message-input" contenteditable="true" style="border:1px solid;width:200px;height:40px"></div>
-<button data-e2e="message-send">Send</button>
+<div data-e2e="dm-new-input-editor"><div contenteditable="true" style="border:1px solid;width:200px;height:40px"></div></div>
+<button data-e2e="dm-new-send-btn">Send</button>
 <script>
-window.sent = 0;
-document.querySelectorAll('[data-e2e="chat-list-item"]').forEach(row => row.onclick = event => {
+window.sent = parseInt(localStorage.getItem('sentCount') || '0');
+function addBubble(t) {
+  const bubble = document.createElement('p');
+  bubble.dataset.e2e = 'dm-new-chat-item';
+  bubble.textContent = t;
+  document.querySelector('#messages').appendChild(bubble);
+}
+// Tin đã gửi được server lưu: mở lại cuộc trò chuyện vẫn còn.
+// (window.dropPersisted = true giả lập server drop: hiện bong bóng lúc gửi nhưng mở lại thì mất.)
+function renderFromServer() {
+  document.querySelector('#messages').innerHTML = '';
+  (JSON.parse(localStorage.getItem('sentBubbles') || '[]')).forEach(t => addBubble(t));
+}
+renderFromServer();
+document.querySelectorAll('[data-e2e="dm-new-conversation-item"]').forEach(row => row.onclick = event => {
   event.preventDefault();
-  if (!window.wrongRecipient) document.querySelector('[data-e2e="chat-header"] a').href = row.querySelector('a').href;
+  if (!window.wrongRecipient) document.querySelector('[data-e2e="chat-uniqueid"]').textContent = row.querySelector('a').getAttribute('href').slice(1);
+  renderFromServer();
 });
 document.querySelector('button').onclick = () => {
   window.sent++;
+  localStorage.setItem('sentCount', String(window.sent));
   const input = document.querySelector('[contenteditable]');
   if (!window.suppressEcho) {
-    const bubble = document.createElement('p');
-    bubble.dataset.e2e = 'chat-message'; bubble.dataset.self = 'true';
-    bubble.textContent = input.textContent;
-    document.querySelector('#messages').appendChild(bubble);
+    addBubble(input.textContent);
+    if (!window.dropPersisted) {
+      const saved = JSON.parse(localStorage.getItem('sentBubbles') || '[]');
+      saved.push(input.textContent);
+      localStorage.setItem('sentBubbles', JSON.stringify(saved));
+    }
   }
   input.textContent = '';
 };

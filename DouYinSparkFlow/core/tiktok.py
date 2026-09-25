@@ -203,7 +203,27 @@ class TikTokWeb:
         except ValueError:
             return raw.casefold()
 
-    async def _open_row(self, index):
+    async def _try_open_uniqueid(self):
+        """Read the opened chat header without waiting; '' when unavailable."""
+        try:
+            raw = await self.loc('chatHeaderProfile').first.inner_text(timeout=2000)
+        except Exception:
+            return ''
+        raw = (raw or '').strip()
+        if not raw:
+            return ''
+        if not raw.startswith('@'):
+            raw = '@' + raw
+        try:
+            return normalize_target(raw)
+        except ValueError:
+            return raw.casefold()
+
+    async def _open_and_verify(self, index, expected):
+        """Click row[index] and ensure the opened pane really shows `expected`.
+
+        Raises identity_mismatch when the pane keeps showing someone else —
+        typing into the wrong conversation must never happen."""
         rows = await self.loc('chatRow').all()
         if index >= len(rows):
             raise TikTokError('friend_not_found', 'Hết danh sách chat để kiểm tra')
@@ -212,8 +232,15 @@ class TikTokWeb:
             await row.evaluate('(el) => el.click()')
         except Exception:
             await row.click(timeout=self.timeout)
-        handle = await self._read_open_uniqueid()
-        return handle
+        # Khung chat có thể cập nhật chậm sau click; thăm dò thay vì đọc dính header cũ.
+        deadline = asyncio.get_running_loop().time() + min(5, max(1, self.timeout / 1000))
+        while True:
+            if await self._try_open_uniqueid() == expected:
+                return expected
+            if asyncio.get_running_loop().time() >= deadline:
+                break
+            await asyncio.sleep(.5)
+        raise TikTokError('identity_mismatch', 'Chat đang mở không trùng @username đã chọn; đã dừng để tránh nhắn nhầm người')
 
     async def scan(self, target=None):
         try:
@@ -225,31 +252,29 @@ class TikTokWeb:
             await self.loc('chatRow').first.wait_for(state='attached', timeout=self.timeout)
         except Exception:
             pass
-        await self.page.wait_for_timeout(2500)
+        await asyncio.sleep(2.5)
         await self.guard()
         found = {}
-        # Re-read rows fresh (DOM changes after clicks/scrolls, cached handles go stale).
-        async def current_rows():
-            return await self.loc('chatRow').all()
-        total = len(await current_rows())
-        for index in range(min(total, self.max_scrolls * 20)):
+
+        async def snapshot():
+            rows = await self.loc('chatRow').all()
+            handles = []
+            for row in rows:
+                try:
+                    handles.append(await self.row_handle(row))
+                except Exception:
+                    handles.append(None)
+            return rows, handles
+
+        rows, handles = await snapshot()
+        for index, handle in enumerate(handles[:self.max_scrolls * 20]):
             await self.guard()
-            try:
-                rows = await current_rows()
-                if index >= len(rows):
-                    break
-                # Fast path: parse @handle from the row itself, no click needed.
-                handle = await self.row_handle(rows[index])
-                if not handle:
-                    handle = await self._open_row(index)
-            except TikTokError:
-                raise
-            except Exception:
-                continue
             if handle:
                 found.setdefault(handle, index)
             if target and handle == target:
-                return target
+                # Mở đúng cuộc trò chuyện và xác minh khung chat trước khi trả về,
+                # để bước gửi không bao giờ gõ nhầm sang người khác.
+                return await self._open_and_verify(index, target)
         # Thử cuộn thêm nếu chưa thấy target (list dài)
         if target and target not in found:
             try:
@@ -260,22 +285,14 @@ class TikTokWeb:
                 await asyncio.sleep(1.5)
             except Exception:
                 pass
-            total2 = len(await self.loc('chatRow').all())
-            for index in range(total, total2):
+            rows2, handles2 = await snapshot()
+            for index in range(len(rows), len(rows2)):
                 await self.guard()
-                try:
-                    rows = await current_rows()
-                    if index >= len(rows):
-                        break
-                    handle = await self.row_handle(rows[index])
-                    if not handle:
-                        handle = await self._open_row(index)
-                except Exception:
-                    continue
+                handle = handles2[index] if index < len(handles2) else None
                 if handle:
                     found.setdefault(handle, index)
                 if target and handle == target:
-                    return target
+                    return await self._open_and_verify(index, target)
         if target:
             raise TikTokError('friend_not_found', f'Không tìm thấy {target} trong {len(found)} hội thoại đã mở; hệ thống không tạo chat mới')
         return sorted(found)
@@ -341,6 +358,7 @@ class TikTokWeb:
             await button.click(timeout=self.timeout)
         except Exception:
             await button.evaluate('(el) => el.click()')
+        echoed = False
         for _ in range(20):
             await self.verify_recipient(target)
             try:
@@ -348,6 +366,18 @@ class TikTokWeb:
             except Exception:
                 empty = True
             if await self.outgoing_count(message) > before and empty:
-                return 'browser_echo'
+                echoed = True
+                break
             await asyncio.sleep(.5)
-        raise TikTokError('send_unconfirmed', 'Đã thử gửi nhưng chưa thấy tin hiện trên Web. Hãy kiểm tra thủ công trên TikTok.')
+        if not echoed:
+            raise TikTokError('send_unconfirmed', 'Đã thử gửi nhưng chưa thấy tin hiện trên Web. Hãy kiểm tra thủ công trên TikTok.')
+        # Bong bóng có thể chỉ là hiển thị lạc quan: TikTok đôi khi hiện tin
+        # rồi âm thầm không chuyển đi (thường gặp ở IP datacenter). Mở lại cuộc
+        # trò chuyện và kiểm tra tin còn tồn tại mới xác nhận.
+        await asyncio.sleep(3)
+        await self.guard()
+        await self.scan(target)
+        await self.guard()
+        if await self.outgoing_count(message) > before:
+            return 'browser_echo'
+        raise TikTokError('send_unconfirmed', 'Tin hiện lúc gửi nhưng mở lại thì mất — TikTok không chuyển tin đi. Hãy kiểm tra thủ công trên TikTok.')
