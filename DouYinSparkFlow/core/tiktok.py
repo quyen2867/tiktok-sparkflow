@@ -220,13 +220,28 @@ class TikTokWeb:
             await self.loc('chatList').first.wait_for(state='attached', timeout=self.timeout)
         except Exception:
             pass
+        # Chat rows load lazily after the list container; wait for at least one row.
+        try:
+            await self.loc('chatRow').first.wait_for(state='attached', timeout=self.timeout)
+        except Exception:
+            pass
+        await self.page.wait_for_timeout(2500)
         await self.guard()
         found = {}
-        total = len(await self.loc('chatRow').all())
+        # Re-read rows fresh (DOM changes after clicks/scrolls, cached handles go stale).
+        async def current_rows():
+            return await self.loc('chatRow').all()
+        total = len(await current_rows())
         for index in range(min(total, self.max_scrolls * 20)):
             await self.guard()
             try:
-                handle = await self._open_row(index)
+                rows = await current_rows()
+                if index >= len(rows):
+                    break
+                # Fast path: parse @handle from the row itself, no click needed.
+                handle = await self.row_handle(rows[index])
+                if not handle:
+                    handle = await self._open_row(index)
             except TikTokError:
                 raise
             except Exception:
@@ -249,7 +264,12 @@ class TikTokWeb:
             for index in range(total, total2):
                 await self.guard()
                 try:
-                    handle = await self._open_row(index)
+                    rows = await current_rows()
+                    if index >= len(rows):
+                        break
+                    handle = await self.row_handle(rows[index])
+                    if not handle:
+                        handle = await self._open_row(index)
                 except Exception:
                     continue
                 if handle:
