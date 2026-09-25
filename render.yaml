@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: tiktok-sparkflow
+    runtime: image
+    image:
+      dockerfilePath: ./DouYinSparkFlow/Dockerfile.server
+      dockerContext: ./DouYinSparkFlow
+      dockerCommand: python main.py --web --host 0.0.0.0 --port $PORT
+      # Dung mirror PyPI goc cho nhanh khi build o US/EU (Dockerfile mac dinh mirror TQ).
+      args:
+        PIP_INDEX_URL: https://pypi.org/simple
+        PIP_TRUSTED_HOST: pypi.org
+    disk:
+      name: sparkflow-state
+      mountPath: /app/state
+      sizeGB: 1
+    envVars:
+      - key: TZ
+        value: Asia/Ho_Chi_Minh
